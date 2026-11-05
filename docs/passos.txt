@@ -198,7 +198,7 @@ FASE 7: ELABORAÇÃO DO RELATÓRIO TÉCNICO (LATEX)
     - Conferir estritamente o limite de 4 páginas e a formatação acadêmica.
 
 --------------------------------------------------------------------------------
-FASE 8: PREPARAÇÃO DA ENTREGA E DA DEFESA
+FASE 8: PREPARAÇÃO DA ENTREGA E DA DEFESA - meio q consequencias
 --------------------------------------------------------------------------------
 [ ] Passo 8.1: Makefile e Empacotamento
     - Criar um `Makefile` com alvos úteis:
