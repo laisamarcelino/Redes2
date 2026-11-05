@@ -1,0 +1,224 @@
+================================================================================
+GUIA PASSO A PASSO PARA A EXECUÇÃO DO TRABALHO PRÁTICO
+Disciplina: Redes de Computadores II (CI1061) - 2026/2 - Prof. Giovanni Venâncio
+Tema: Sistema de Balanceamento de Cargas (Load Balancer TCP)
+================================================================================
+
+Este documento descreve detalhadamente o roteiro de planejamento, desenvolvimento,
+testes e entrega do trabalho prático.
+
+--------------------------------------------------------------------------------
+1. RESUMO DOS REQUISITOS DO SISTEMA
+--------------------------------------------------------------------------------
+- Componentes:
+  1. Load Balancer (LB): Intermediador TCP concorrente com políticas Round-Robin e Least Connections.
+  2. Servidores Backend (N instâncias): Atendem requisições repassadas pelo LB de forma concorrente e respondem com "OK". Podem falhar e ser recuperados.
+  3. Sistema de Monitoramento: Checa a integridade dos servidores periodicamente e atualiza o estado (UP/DOWN).
+  4. Tabela de Servidores: Armazena IP, porta, status (UP/DOWN), conexões ativas e total de conexões.
+  5. Script de Clientes: Gera tráfego concorrente simulando M clientes com conexões de K segundos.
+- Restrições técnicas:
+  * Utilizar exclusivamente sockets TCP padrão (sem bibliotecas adicionais de rede).
+  * Clientes conhecem apenas o LB (não podem conectar diretamente aos servidores).
+  * Deve executar obrigatoriamente no ambiente dos servidores do DInf.
+  * Linguagem livre (sugestão: Python ou C).
+  * Relatório em LaTeX com no máximo 4 páginas.
+  * Entrega: arquivo .tgz (código-fonte) + relatório em PDF.
+  * Defesa oral obrigatória (nota multiplicativa).
+
+--------------------------------------------------------------------------------
+FASE 1: PLANEJAMENTO E DEFINIÇÕES INICIAIS
+--------------------------------------------------------------------------------
+[ ] Passo 1.1: Escolha da Linguagem e Organização da Equipe
+    - Definir a linguagem (recomendação: Python 3 com módulos padrão `socket`, `threading` e `argparse`, pela facilidade de prototipação, clareza e conformidade com os servidores do DInf).
+    - Dividir as frentes de trabalho entre os integrantes da equipe (ex: LB + Políticas; Servidores + Monitoramento/Falhas; Clientes de Teste + Relatório).
+
+[ ] Passo 1.2: Estrutura do Repositório
+    - Criar a estrutura recomendada de diretórios:
+      /trabalho
+      ├── src/
+      │   ├── lb.py            # Implementação do Load Balancer
+      │   ├── server.py        # Implementação do Servidor Backend
+      │   ├── monitor.py       # Sistema de monitoramento de saúde dos servidores
+      │   ├── client_sim.py    # Script gerador de carga (M clientes, K segundos)
+      │   └── server_table.py  # Estrutura de dados compartilhada da tabela de servidores
+      ├── scripts/
+      │   ├── start_cluster.sh # Script para subir N servidores e o LB localmente
+      │   ├── kill_server.sh   # Script para simular falha de um servidor
+      │   └── run_tests.sh     # Bateria de testes automatizados
+      ├── doc/
+      │   ├── relatorio.tex    # Relatório em LaTeX (máx 4 páginas)
+      │   └── relatorio.pdf    # PDF gerado
+      ├── Makefile             # Comandos para build/execução/limpeza/empacotamento
+      └── passos.txt           # Este guia de acompanhamento
+
+[ ] Passo 1.3: Definição da Arquitetura de Comunicação e Concorrência
+    - Definir como a Tabela de Servidores será compartilhada com o Monitoramento:
+      * Opção A (Recomendada): Monitoramento roda em uma thread dedicada dentro do próprio processo do LB, compartilhando a tabela em memória protegida por locks (Threading Mutex).
+      * Opção B: Processo de monitoramento separado se comunicando com o LB via IPC/socket de controle local (Unix Domain Socket ou TCP local).
+    - Definir protocolo de aplicação simples entre cliente e servidor (ex: envio de payload de bytes/texto terminado em \n e resposta "OK\n").
+
+--------------------------------------------------------------------------------
+FASE 2: DESENVOLVIMENTO DOS SERVIDORES BACKEND
+--------------------------------------------------------------------------------
+[ ] Passo 2.1: Servidor TCP Concorrente (`server.py`)
+    - Aceitar parâmetros via linha de comando: IP de bind, porta e ID/nome do servidor.
+    - Tratar múltiplas conexões simultâneas usando threads (Thread-per-connection) ou pool de threads de maneira não bloqueante.
+    - Receber dados do LB, imprimir log de recepção e responder com confirmação ("OK\n").
+    - Manter a conexão aberta pelo tempo solicitado pelo cliente ou até o cliente fechar.
+
+[ ] Passo 2.2: Mecanismo de Simulação de Falhas e Recuperação
+    - Adicionar suporte a encerramento controlado ou simulação de pane (ex: captura de sinal SIGUSR1/SIGTERM, rota de encerramento temporário, ou script externo que mata o processo via PID).
+    - Implementar a recuperação: script/rotina que reinicia o processo do servidor na mesma porta após a falha para validar a reconexão pelo monitoramento.
+
+--------------------------------------------------------------------------------
+FASE 3: IMPLEMENTAÇÃO DA TABELA DE SERVIDORES E SISTEMA DE MONITORAMENTO
+--------------------------------------------------------------------------------
+[ ] Passo 3.1: Estrutura da Tabela de Servidores (`server_table.py`)
+    - Armazenar para cada servidor:
+      * ID/Nome
+      * IP e Porta
+      * Status: UP / DOWN
+      * Conexões ativas no momento
+      * Total histórico de conexões atendidas
+    - Total global de conexões mantidas pelo LB.
+    - Métodos thread-safe (utilizando `threading.Lock`):
+      * `increment_connection(server_id)`
+      * `decrement_connection(server_id)`
+      * `set_status(server_id, status)`
+      * `get_active_servers()`
+      * `get_least_connected_server()`
+      * `get_snapshot()` para logs e relatórios.
+
+[ ] Passo 3.2: Sistema de Monitoramento Periódico (`monitor.py`)
+    - Thread ou processo com loop infinito com intervalo de checagem configurável (ex: a cada 2 a 5 segundos).
+    - Estratégia de Health Check:
+      * Tentar abrir uma conexão TCP rápida (connect com timeout curto, ex: 1 segundo) no IP/Porta de cada servidor registrado.
+      * Se a conexão tiver sucesso: marcar servidor como UP (caso estivesse DOWN, registrar recuperação e logar).
+      * Se a conexão falhar (ConnectionRefused ou Timeout): marcar servidor como DOWN e logar imediatamente a falha.
+    - Atualizar a Tabela de Servidores com as alterações de estado.
+
+--------------------------------------------------------------------------------
+FASE 4: IMPLEMENTAÇÃO DO LOAD BALANCER (LB)
+--------------------------------------------------------------------------------
+[ ] Passo 4.1: Inicialização e Parâmetros de Linha de Comando (`lb.py`)
+    - Parâmetros obrigatórios:
+      * Porta de escuta do LB.
+      * Política de balanceamento: `round-robin` ou `least-connections`.
+      * Lista de servidores backend (arquivo de configuração ou argumentos no formato IP:PORTA).
+    - Validação dos argumentos e inicialização da Tabela de Servidores.
+
+[ ] Passo 4.2: Implementação das Políticas de Escolha
+    - **Round-Robin**:
+      * Manter um ponteiro/índice circular de seleção.
+      * Filtrar apenas servidores com status UP.
+      * Avançar de forma circular e atômica para garantir distribuição equilibrada.
+    - **Least Connections**:
+      * Filtrar apenas servidores com status UP.
+      * Selecionar o servidor com a menor quantidade de conexões ativas no momento.
+      * Em caso de empate, aplicar desempate estável (ex: menor ID ou round-robin entre os empatados).
+
+[ ] Passo 4.3: Concorrência e Proxy de Tráfego (Relay Bidirecional)
+    - Socket listener TCP principal atendendo novas conexões de clientes.
+    - Para cada conexão recebida:
+      1. Disparar uma thread trabalhadora para não bloquear novas conexões.
+      2. Consultar a Tabela de Servidores e aplicar a política configurada para escolher um servidor ativo.
+      3. Se nenhum servidor estiver ativo: retornar erro/fechar conexão e logar alerta.
+      4. Incrementar contador de conexões ativas do servidor escolhido na Tabela.
+      5. Estabelecer socket TCP de saída em direção ao servidor escolhido.
+      6. Repassar fluxo bidirecional de dados:
+         - Cliente -> LB -> Servidor
+         - Servidor -> LB -> Cliente
+      7. Ao finalizar a conexão (cliente encerrou ou socket quebrou):
+         - Fechar sockets com segurança.
+         - Decrementar contador de conexões ativas na Tabela.
+
+[ ] Passo 4.4: Sistema de Logging Detalhado
+    - Implementar logs com timestamp, identificação de evento, status e métricas:
+      * Conexão recebida de [IP:Porta_Cliente].
+      * Política aplicada e servidor backend selecionado [ID, IP:Porta].
+      * Número de conexões ativas atual de cada servidor.
+      * Notificações de mudança de status (Servidor DOWN / Servidor UP).
+      * Encerramento de conexões e transferências completadas.
+
+--------------------------------------------------------------------------------
+FASE 5: SCRIPT GERADOR DE CARGA / SIMULAÇÃO DE CLIENTES
+--------------------------------------------------------------------------------
+[ ] Passo 5.1: Implementação do Script (`client_sim.py`)
+    - Parâmetros:
+      * IP e porta do Load Balancer.
+      * Número de clientes M (threads/processos paralelos).
+      * Duração da conexão K segundos (pode ser fixa ou faixa aleatória).
+      * Intervalo entre mensagens / taxa de envio.
+    - Garantir que os clientes conectem SOMENTE ao LB (nunca aos servidores diretamente).
+    - Medir e exibir métricas ao final: requisições feitas, respostas "OK" recebidas, taxa de sucesso e erros.
+
+--------------------------------------------------------------------------------
+FASE 6: AMBIENTE DE TESTES E CENÁRIOS DE AVALIAÇÃO
+--------------------------------------------------------------------------------
+[ ] Passo 6.1: Cenário 1 - Teste da Política Round-Robin
+    - Subir 3 servidores e o LB em modo Round-Robin.
+    - Disparar 30 conexões de clientes com tempos uniformes.
+    - Verificar nos logs se a distribuição de conexões foi equilibrada (10 conexões para cada servidor).
+
+[ ] Passo 6.2: Cenário 2 - Teste da Política Least Connections
+    - Subir 3 servidores e o LB em modo Least Connections.
+    - Disparar clientes com tempos de conexão heterogêneos (ex: alguns clientes com K=10s e outros com K=1s).
+    - Verificar se novas conexões foram direcionadas para os servidores com menor carga acumulada no momento.
+
+[ ] Passo 6.3: Cenário 3 - Teste de Tolerância a Falhas
+    - Com carga de clientes em execução, derrubar forçadamente um dos servidores (matar processo ou comando de falha).
+    - Verificar se o Monitoramento detectou a queda e marcou o servidor como DOWN.
+    - Verificar se o LB parou de encaminhar novas requisições para o servidor caído e continuou atendendo nos demais.
+
+[ ] Passo 6.4: Cenário 4 - Teste de Recuperação de Falhas
+    - Reiniciar o servidor caído na mesma porta.
+    - Verificar se o Monitoramento identificou a reativação e atualizou a tabela para UP.
+    - Verificar se o LB voltou a enviar tráfego para esse servidor normalmente.
+
+[ ] Passo 6.5: Validação no Ambiente dos Servidores do DInf
+    - Conectar via SSH aos servidores do DInf.
+    - Testar clonagem do código, execução dos servidores em portas livres (>1024), execução do LB e do gerador de carga.
+    - Garantir ausência de dependências externas que precisem de permissão de root ou bibliotecas não padronizadas.
+
+--------------------------------------------------------------------------------
+FASE 7: ELABORAÇÃO DO RELATÓRIO TÉCNICO (LATEX)
+--------------------------------------------------------------------------------
+[ ] Passo 7.1: Estrutura do Documento (Máximo 4 páginas)
+    - Seção 1: Introdução e Visão Geral da Arquitetura.
+    - Seção 2: Decisões de Projeto:
+      * Modelo de concorrência adotado (threads vs processos).
+      * Implementação da Tabela de Servidores e mecanismos de sincronização (Locks).
+      * Estratégia de monitoramento de saúde e algoritmo de recuperação de falhas.
+    - Seção 3: Implementação das Políticas de Balanceamento (Round-Robin e Least Connections).
+    - Seção 4: Resultados Experimentais e Testes de Carga (gráficos ou tabelas de distribuição de conexões e tempos de recuperação).
+    - Seção 5: Conclusão e Dificuldades Encontradas.
+
+[ ] Passo 7.2: Compilação e Revisão
+    - Compilar o relatório com `pdflatex` gerando `relatorio.pdf`.
+    - Conferir estritamente o limite de 4 páginas e a formatação acadêmica.
+
+--------------------------------------------------------------------------------
+FASE 8: PREPARAÇÃO DA ENTREGA E DA DEFESA
+--------------------------------------------------------------------------------
+[ ] Passo 8.1: Makefile e Empacotamento
+    - Criar um `Makefile` com alvos úteis:
+      * `make run-lb` / `make run-servers` / `make run-clients`
+      * `make test`
+      * `make report` (compila LaTeX)
+      * `make dist` (gera o arquivo .tgz com o código-fonte)
+      * `make clean`
+    - Gerar o arquivo comprimido `.tgz` contendo todo o código-fonte limpo (sem arquivos temporários, logs ou PDFs desnecessários).
+
+[ ] Passo 8.2: Checklist de Submissão no Moodle
+    - [ ] Arquivo de código comprimido em formato `.tgz`.
+    - [ ] Arquivo `relatorio.pdf` (máximo de 4 páginas).
+    - [ ] Submissão realizada por um único membro da equipe antes do prazo final.
+
+[ ] Passo 8.3: Preparação para a Defesa Oral
+    - Todos os integrantes da equipe devem estudar detalhadamente o código inteiro (a nota da defesa é individual e multiplicativa).
+    - Deixar scripts de teste prontos e ensaiados para demonstrar:
+      1. Execução com Round-Robin.
+      2. Execução com Least Connections.
+      3. Simulação de falha ao vivo com visualização nos logs do LB.
+      4. Recuperação do servidor e retomada de tráfego.
+================================================================================
