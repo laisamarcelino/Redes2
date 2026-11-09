@@ -1,6 +1,7 @@
 import argparse 
 import socket 
 import threading 
+import signal
 
 MAX_SIZE = 1024
 
@@ -57,6 +58,17 @@ def handle_client(conn: socket.socket, addr: tuple, server_id: str):
 
         # talvez logar aqui (pra isso que addr e server_id estao como argumentos) 
 
+shutdown = threading.Event()
+def on_signal(signum, frame):
+    '''
+    Handler de recibemento de sinal,
+    vai ser usado para os sinais de desligamento, como sigint ou sigterm,
+    sigkill nao vamos ter handler, pois este precisa simular um erro padrão
+    '''
+
+    print(f"sinal {signum} recebido, iniciando shutdown")
+    shutdown.set()
+
 def run_server(host: str, port: int, server_id: str):
     '''
     Roda de fato o servidor com handle_client em uma thread nova
@@ -71,12 +83,17 @@ def run_server(host: str, port: int, server_id: str):
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # evita "Address already in use" no restart
     srv.bind((host, port))
     srv.listen(128)
+    srv.settimeout(0.5)
 
     print(f"[{server_id}] escutando em {host}:{port}")
 
     try:
-        while True:
-            conn, addr = srv.accept()
+        while not shutdown.is_set():
+            try:
+                conn, addr = srv.accept()
+            except socket.timeout:
+                continue
+
             t = threading.Thread(
                 target=handle_client, #Rodando a função handle_client
                 args=(conn, addr, server_id),
@@ -86,7 +103,11 @@ def run_server(host: str, port: int, server_id: str):
             t.start()
     finally:
         srv.close()
+        print(f"[{server_id}] encerrado")
 
 if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+
     args = parse_args()
     run_server(args.host, args.port, args.id)
