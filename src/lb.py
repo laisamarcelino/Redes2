@@ -1,5 +1,8 @@
 import argparse 
-from server_table import ServerEntry
+try:
+    from server_table import ServerEntry
+except ImportError:
+    from src.server_table import ServerEntry
 
 def parse_args():
     '''
@@ -31,13 +34,18 @@ def parse_args():
 
 def parse_servers(items):
     '''Retorna os servidores criados com base nos argumentos passados
-    items: Valores recebidos de parser_args
+    items: Valores recebidos de parse_args
 
-    Retorna uma lista de serverEntries
+    Retorna uma lista de ServerEntry
     '''
+    raw = []
+    for s in items:
+        for part in s.replace(",", " ").split():
+            if part.strip():
+                raw.append(part.strip())
 
     out = []
-    for i, s in enumerate(items, start=1):
+    for i, s in enumerate(raw, start=1):
         try:
             ip, port = s.rsplit(":", 1)
             out.append(ServerEntry(id=f"srv-{i}", ip=ip, port=int(port)))
