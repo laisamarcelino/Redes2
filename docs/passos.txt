@@ -28,11 +28,11 @@ testes e entrega do trabalho prático.
 --------------------------------------------------------------------------------
 FASE 1: PLANEJAMENTO E DEFINIÇÕES INICIAIS
 --------------------------------------------------------------------------------
-[ ] Passo 1.1: Escolha da Linguagem e Organização da Equipe
+[X] Passo 1.1: Escolha da Linguagem e Organização da Equipe
     - Definir a linguagem (recomendação: Python 3 com módulos padrão `socket`, `threading` e `argparse`, pela facilidade de prototipação, clareza e conformidade com os servidores do DInf).
     - Dividir as frentes de trabalho entre os integrantes da equipe (ex: LB + Políticas; Servidores + Monitoramento/Falhas; Clientes de Teste + Relatório).
 
-[ ] Passo 1.2: Estrutura do Repositório
+Estrutura do Repositório
     - Criar a estrutura recomendada de diretórios:
       /trabalho
       ├── src/
@@ -51,7 +51,7 @@ FASE 1: PLANEJAMENTO E DEFINIÇÕES INICIAIS
       ├── Makefile             # Comandos para build/execução/limpeza/empacotamento
       └── passos.txt           # Este guia de acompanhamento
 
-[ ] Passo 1.3: Definição da Arquitetura de Comunicação e Concorrência
+[X] Passo 1.2: Definição da Arquitetura de Comunicação e Concorrência
     - Definir como a Tabela de Servidores será compartilhada com o Monitoramento:
       * Opção A (Recomendada): Monitoramento roda em uma thread dedicada dentro do próprio processo do LB, compartilhando a tabela em memória protegida por locks (Threading Mutex).
       * Opção B: Processo de monitoramento separado se comunicando com o LB via IPC/socket de controle local (Unix Domain Socket ou TCP local).
@@ -60,20 +60,20 @@ FASE 1: PLANEJAMENTO E DEFINIÇÕES INICIAIS
 --------------------------------------------------------------------------------
 FASE 2: DESENVOLVIMENTO DOS SERVIDORES BACKEND
 --------------------------------------------------------------------------------
-[ ] Passo 2.1: Servidor TCP Concorrente (`server.py`)
+[X] Passo 2.1: Servidor TCP Concorrente (`server.py`)
     - Aceitar parâmetros via linha de comando: IP de bind, porta e ID/nome do servidor.
     - Tratar múltiplas conexões simultâneas usando threads (Thread-per-connection) ou pool de threads de maneira não bloqueante.
     - Receber dados do LB, imprimir log de recepção e responder com confirmação ("OK\n").
     - Manter a conexão aberta pelo tempo solicitado pelo cliente ou até o cliente fechar.
 
-[ ] Passo 2.2: Mecanismo de Simulação de Falhas e Recuperação
+[X] Passo 2.2: Mecanismo de Simulação de Falhas e Recuperação
     - Adicionar suporte a encerramento controlado ou simulação de pane (ex: captura de sinal SIGUSR1/SIGTERM, rota de encerramento temporário, ou script externo que mata o processo via PID).
     - Implementar a recuperação: script/rotina que reinicia o processo do servidor na mesma porta após a falha para validar a reconexão pelo monitoramento.
 
 --------------------------------------------------------------------------------
 FASE 3: IMPLEMENTAÇÃO DA TABELA DE SERVIDORES E SISTEMA DE MONITORAMENTO
 --------------------------------------------------------------------------------
-[ ] Passo 3.1: Estrutura da Tabela de Servidores (`server_table.py`)
+[X] Passo 3.1: Estrutura da Tabela de Servidores (`server_table.py`)
     - Armazenar para cada servidor:
       * ID/Nome
       * IP e Porta
@@ -89,7 +89,7 @@ FASE 3: IMPLEMENTAÇÃO DA TABELA DE SERVIDORES E SISTEMA DE MONITORAMENTO
       * `get_least_connected_server()`
       * `get_snapshot()` para logs e relatórios.
 
-[ ] Passo 3.2: Sistema de Monitoramento Periódico (`monitor.py`)
+[X] Passo 3.2: Sistema de Monitoramento Periódico (`monitor.py`)
     - Thread ou processo com loop infinito com intervalo de checagem configurável (ex: a cada 2 a 5 segundos).
     - Estratégia de Health Check:
       * Tentar abrir uma conexão TCP rápida (connect com timeout curto, ex: 1 segundo) no IP/Porta de cada servidor registrado.
