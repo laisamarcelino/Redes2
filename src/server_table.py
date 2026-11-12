@@ -191,3 +191,29 @@ class ServerTable:
         lines.append("+---------+----------------------+--------+-----------+-------+")
         lines.append(f"Total global mantido pelo LB: {snapshot['total_global']} conexões | Ativas agora: {snapshot['total_active']}")
         return "\n".join(lines)
+
+    def select_and_reserve(self, policy: str):
+        '''
+        Função genérica para receber um servidor baseado na politíca.
+        Escolhe o servidor e já incrementa o valor de conexões
+        Vai servir para evitar janela de corrida
+
+        Retorna um ServerEntry, cópia do servidor escolhido
+        '''
+        with self._lock:
+            ups = [s for s in self._servers.values() if s.status == Status.UP]
+
+            if not ups:
+                return None
+
+            if policy == "round-robin":
+                ups.sort(key=lambda s: s.id)
+                chosen = ups[self._rr_index % len(ups)]
+                self._rr_index = (self._rr_index + 1) % len(ups)
+            else:  # least-connections
+                chosen = min(ups, key=lambda s: (s.active_connections, s.id))
+
+            chosen.active_connections += 1
+            chosen.total_connections += 1
+            self._total_global += 1
+            return chosen.copy()

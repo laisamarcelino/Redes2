@@ -100,14 +100,14 @@ FASE 3: IMPLEMENTAÇÃO DA TABELA DE SERVIDORES E SISTEMA DE MONITORAMENTO
 --------------------------------------------------------------------------------
 FASE 4: IMPLEMENTAÇÃO DO LOAD BALANCER (LB)
 --------------------------------------------------------------------------------
-[ ] Passo 4.1: Inicialização e Parâmetros de Linha de Comando (`lb.py`)
+[X] Passo 4.1: Inicialização e Parâmetros de Linha de Comando (`lb.py`)
     - Parâmetros obrigatórios:
       * Porta de escuta do LB.
       * Política de balanceamento: `round-robin` ou `least-connections`.
       * Lista de servidores backend (arquivo de configuração ou argumentos no formato IP:PORTA).
     - Validação dos argumentos e inicialização da Tabela de Servidores.
 
-[ ] Passo 4.2: Implementação das Políticas de Escolha
+[X] Passo 4.2: Implementação das Políticas de Escolha
     - **Round-Robin**:
       * Manter um ponteiro/índice circular de seleção.
       * Filtrar apenas servidores com status UP.
@@ -117,7 +117,7 @@ FASE 4: IMPLEMENTAÇÃO DO LOAD BALANCER (LB)
       * Selecionar o servidor com a menor quantidade de conexões ativas no momento.
       * Em caso de empate, aplicar desempate estável (ex: menor ID ou round-robin entre os empatados).
 
-[ ] Passo 4.3: Concorrência e Proxy de Tráfego (Relay Bidirecional)
+[X] Passo 4.3: Concorrência e Proxy de Tráfego (Relay Bidirecional)
     - Socket listener TCP principal atendendo novas conexões de clientes.
     - Para cada conexão recebida:
       1. Disparar uma thread trabalhadora para não bloquear novas conexões.
