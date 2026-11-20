@@ -132,7 +132,7 @@ FASE 4: IMPLEMENTAÇÃO DO LOAD BALANCER (LB)
          - Fechar sockets com segurança.
          - Decrementar contador de conexões ativas na Tabela.
 
-[ ] Passo 4.4: Sistema de Logging Detalhado
+[X] Passo 4.4: Sistema de Logging Detalhado
     - Implementar logs com timestamp, identificação de evento, status e métricas:
       * Conexão recebida de [IP:Porta_Cliente].
       * Política aplicada e servidor backend selecionado [ID, IP:Porta].
@@ -143,7 +143,7 @@ FASE 4: IMPLEMENTAÇÃO DO LOAD BALANCER (LB)
 --------------------------------------------------------------------------------
 FASE 5: SCRIPT GERADOR DE CARGA / SIMULAÇÃO DE CLIENTES
 --------------------------------------------------------------------------------
-[ ] Passo 5.1: Implementação do Script (`client_sim.py`)
+[X] Passo 5.1: Implementação do Script (`client_sim.py`)
     - Parâmetros:
       * IP e porta do Load Balancer.
       * Número de clientes M (threads/processos paralelos).
@@ -200,7 +200,7 @@ FASE 7: ELABORAÇÃO DO RELATÓRIO TÉCNICO (LATEX)
 --------------------------------------------------------------------------------
 FASE 8: PREPARAÇÃO DA ENTREGA E DA DEFESA - meio q consequencias
 --------------------------------------------------------------------------------
-[ ] Passo 8.1: Makefile e Empacotamento
+[X] Passo 8.1: Makefile e Empacotamento
     - Criar um `Makefile` com alvos úteis:
       * `make run-lb` / `make run-servers` / `make run-clients`
       * `make test`
