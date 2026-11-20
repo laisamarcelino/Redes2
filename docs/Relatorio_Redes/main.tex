@@ -1,0 +1,103 @@
+\documentclass[11pt,a4paper]{article}
+
+% Preâmbulo e estilos compactos (garante limite estrito de 4 páginas de conteúdo)
+\input{abntformat}
+
+\begin{document}
+
+% ==============================================================================
+% Capa Institucional ABNT / UFPR (página separada não contabilizada nas 4 páginas)
+% ==============================================================================
+\input{capa}
+\clearpage
+
+% Reinicia a numeração arábica a partir da primeira página de texto efetivo
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+% ==============================================================================
+\section{Introdução e Visão Geral da Arquitetura}
+% ==============================================================================
+
+Em sistemas distribuídos modernos, o balanceamento de carga na camada de transporte é fundamental para prover escalabilidade horizontal e alta disponibilidade. A concentração de todas as conexões em uma única máquina servidora gera um gargalo computacional e cria um ponto único de falha (\textit{Single Point of Failure} -- SPOF). O presente trabalho prático desenvolve um sistema completo de balanceamento de carga TCP concorrente para a disciplina de Redes de Computadores II (CI1061).
+
+O sistema é composto por cinco componentes essenciais, operando exclusivamente com sockets TCP padrão da biblioteca nativa do Python:
+\begin{enumerate}
+    \item \textbf{Clientes Concorrentes:} Simulam $M$ conexões paralelas que enviam fluxos de mensagens terminadas em \texttt{"\textbackslash n"} durante $K$ segundos. Em estrita conformidade com o princípio de transparência de rede, os clientes conhecem \textit{apenas} o endereço IP e a porta do Load Balancer, sendo terminantemente proibida a comunicação direta com os servidores backend.
+    \item \textbf{Load Balancer (LB):} Agente intermediário concorrente e não bloqueante que escuta conexões de entrada, consulta a tabela de servidores, despacha cada fluxo para um nó backend conforme a política configurada e opera como proxy TCP bidirecional (\textit{relay}) full-duplex.
+    \item \textbf{Servidores Backend ($N$ instâncias):} Servidores TCP concorrentes independentes que recebem o tráfego repassado pelo LB, processam a requisição e devolvem a confirmação \texttt{"OK\textbackslash n"}. Estão sujeitos a panes forçadas e recuperações dinâmicas.
+    \item \textbf{Tabela de Servidores:} Estrutura de dados compartilhada em memória que mantém o número total global de conexões mantidas pelo LB, a contagem de conexões ativas e acumuladas de cada servidor, endereço IP, porta e status operacional (\texttt{UP} ou \texttt{DOWN}).
+    \item \textbf{Sistema de Monitoramento (\textit{Health Check}):} Mecanismo periódico executado em thread dedicada que diagnostica a integridade dos servidores, atualizando a tabela diante de quedas e recuperações.
+\end{enumerate}
+
+\begin{figure}[!ht]
+\centering
+\small
+\begin{verbatim}
++---------------+          +---------------------------------+          +---------------+
+|   Clientes    |   TCP    |          LOAD BALANCER          |   TCP    | Servidor 1..N |
+|  (1..M, K s)  | =======> | - Proxy TCP (Relay Bidirecional)| =======> | (portas 800N) |
++---------------+  Dados   | - Políticas (Round-Robin / LC)  |  Dados   | Resposta "OK" |
+                           | - Tabela de Servidores (Mutex)  |          +---------------+
+                           | - HealthMonitor (Sondagens TCP) | - - - - > Controle: UP /
+                           +---------------------------------+  Sonda    DOWN periódico
+\end{verbatim}
+\vspace{-0.6em}
+\caption{Arquitetura do sistema: canais de dados (linhas duplas) e controle de saúde (tracejado).}
+\label{fig:arquitetura}
+\end{figure}
+
+% ==============================================================================
+\section{Decisões de Projeto e Detalhes de Implementação}
+% ==============================================================================
+
+A implementação foi construída em Python 3 utilizando unicamente os módulos padrão \texttt{socket}, \texttt{threading}, \texttt{argparse}, \texttt{time} e \texttt{signal}.
+
+\subsection{Modelo de Concorrência: Threads vs. Processos}
+Tanto no Load Balancer quanto nos servidores backend, a carga de trabalho é predominantemente limitada por entrada e saída de rede (\textit{I/O-bound}). Por essa razão, optou-se pelo modelo \textit{thread-per-connection}. Ao receber uma nova conexão via chamada bloqueante \texttt{accept()}, o socket despacha imediatamente o descritor para uma thread trabalhadora criada em modo \textit{daemon}.
+
+Essa estratégia proporciona baixo consumo de memória e chaveamento de contexto ágil no Linux, além de viabilizar o compartilhamento natural da tabela de servidores em memória entre o proxy e o monitor de saúde. No CPython, operações bloqueantes de rede (\texttt{socket.recv()} e \texttt{socket.sendall()}) liberam explicitamente o \textit{Global Interpreter Lock} (GIL) na chamada de sistema do kernel, permitindo paralelismo de I/O entre múltiplos clientes.
+
+\subsection{Tabela de Servidores e Sincronização Atômica}
+A classe \texttt{ServerTable} centraliza o estado do cluster. Cada nó é modelado por um objeto \texttt{ServerEntry}, contendo os atributos \texttt{id}, \texttt{ip}, \texttt{port}, \texttt{status}, \texttt{active\_connections} e \texttt{total\_connections}.
+
+O acesso concorrente simultâneo por dezenas de threads de clientes e pela thread de monitoramento impõe riscos de condições de corrida (\textit{race conditions}). Para assegurar integridade, todas as leituras e mutações são protegidas por uma primitiva de exclusão mútua (\texttt{threading.Lock}).
+
+Em particular, identificou-se uma janela de vulnerabilidade entre o instante em que o LB consulta o servidor com menor carga e o momento em que a conexão é efetivamente iniciada. Para sanar esse problema, desenvolveu-se o método atômico \texttt{select\_and\_reserve(policy)}: sob a proteção do mesmo lock, o método avalia a política, escolhe o servidor disponível e já incrementa imediatamente tanto suas conexões ativas quanto o contador global do LB, eliminando o risco de sobrecarga concentrada durante rajadas de conexões.
+
+\subsection{Proxy TCP e Relay Bidirecional Full-Duplex}
+O repasse de tráfego ocorre na função \texttt{relay(src, dst)}. Para garantir transporte bidirecional concorrente e não bloqueante, cada conexão cliente-LB-backend dispara duas threads de encaminhamento:
+\begin{itemize}
+    \item \textbf{Canal de Entrada:} lê bytes do cliente e transmite integralmente ao servidor backend;
+    \item \textbf{Canal de Retorno:} lê a confirmação do servidor e transmite diretamente ao cliente.
+\end{itemize}
+Quando um dos lados encerra o envio, invoca-se \texttt{dst.shutdown(socket.SHUT\_WR)}, drenando ordenadamente os dados residuais. Ao término do fluxo, o bloco \texttt{finally} assegura o fechamento seguro de ambos os sockets e invoca \texttt{table.decrement\_connection(backend.id)}, garantindo o estorno da conexão ativa mesmo em casos de desconexão abrupta.
+
+\subsection{Monitoramento Contínuo e Tolerância a Falhas}
+A classe \texttt{HealthMonitor} (em \texttt{src/monitor.py}) executa em uma thread autônoma em segundo plano com intervalo configurável (padrão de \SI{2.0}{\second}). A sondagem de integridade é implementada via tentativa de conexão TCP rápida (\texttt{socket.connect}) com timeout curto de \SI{1.0}{\second}:
+\begin{itemize}
+    \item \textbf{Sucesso na conexão:} o socket de teste é fechado de imediato e o servidor é marcado como \texttt{UP}. Caso estivesse \texttt{DOWN}, registra-se o evento de recuperação com timestamp nos logs.
+    \item \textbf{Falha (\texttt{ConnectionRefused} ou timeout):} o servidor é marcado atomicamente como \texttt{DOWN}, sendo imediatamente excluído das decisões de roteamento do LB.
+\end{itemize}
+O projeto implementa tratamento de falhas em duas vias: manual, por meio do script \texttt{scripts/recover\_server.sh} (que reinicia a instância na mesma porta via verificação de porta livre), e automática, através da opção \texttt{--auto-recover} do monitor, que relança o processo como subprocesso do sistema com proteção contra relançamentos em loop.
+
+% ==============================================================================
+\section{Implementação das Políticas de Balanceamento}
+% ==============================================================================
+
+
+
+% ==============================================================================
+\section{Metodologia e Resultados Experimentais}
+% ==============================================================================
+
+
+
+% ==============================================================================
+\section{Conclusão}
+% ==============================================================================
+
+
+\input{refs}
+
+\end{document}

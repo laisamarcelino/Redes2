@@ -1,0 +1,48 @@
+% abntformat.tex
+% ------------------------------------------------------------------------------
+% Configuração de Pacotes e Estilo Visual para Relatório Técnico (Máx. 4 páginas)
+% ------------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+
+% Margens de 2.0cm para aproveitamento ideal do espaço no limite de 4 páginas
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    margin=2.0cm,
+    top=2.0cm,
+    bottom=2.0cm
+}
+
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+
+% Configuração de pontuação numérica
+\sisetup{
+    output-decimal-marker = {,},
+    per-mode = symbol
+}
+
+% Espaçamento compacto em listas para não inflar páginas desnecessariamente
+\setlist{nosep, leftmargin=1.5em, topsep=2pt, partopsep=0pt}
+
+% Ajuste sutil de espaçamento de seções para garantir o teto de 4 páginas
+\titlespacing*{\section}{0pt}{1.2ex plus 0.4ex minus 0.2ex}{0.6ex plus 0.2ex}
+\titlespacing*{\subsection}{0pt}{1.0ex plus 0.3ex minus 0.2ex}{0.4ex plus 0.2ex}
+
+% Configuração de hiperlinks
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=black,
+    urlcolor=blue
+}
