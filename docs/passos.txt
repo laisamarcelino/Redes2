@@ -200,7 +200,7 @@ FASE 7: ELABORAÇÃO DO RELATÓRIO TÉCNICO (LATEX)
 --------------------------------------------------------------------------------
 FASE 8: PREPARAÇÃO DA ENTREGA E DA DEFESA - meio q consequencias
 --------------------------------------------------------------------------------
-[X] Passo 8.1: Makefile e Empacotamento
+[ ] Passo 8.1: Makefile e Empacotamento
     - Criar um `Makefile` com alvos úteis:
       * `make run-lb` / `make run-servers` / `make run-clients`
       * `make test`
