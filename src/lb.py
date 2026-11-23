@@ -16,7 +16,7 @@ except ImportError:
 def log_event(event_type: str, message: str) -> None:
     """Imprime uma mensagem de log padronizada com timestamp e categoria."""
     timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] [LB] [{event_type}] {message}", flush=True)
+    print(f"[{timestamp}] [LB] [{event_type}] {message}\n", end="", flush=True)
 
 
 def _parse_ip_port(spec: str) -> tuple[str, int]:
