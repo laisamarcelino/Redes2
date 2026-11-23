@@ -1,0 +1,32 @@
+
+Subindo os 3 servidores...
+
+### C1: Round-Robin, 30 clientes -> 10 por servidor
+  PASS  srv-1 recebeu 10 conexões (10)
+  PASS  srv-2 recebeu 10 conexões (10)
+  PASS  srv-3 recebeu 10 conexões (10)
+  PASS  conexões ativas no fim (Ativas agora: 0)
+
+### C2: Least Connections. 2 clientes longos ocupam srv-1 e srv-2; os 6 curtos vão para o srv-3
+  PASS  srv-1 (cliente longo) recebeu 1 conexão (1)
+  PASS  srv-2 (cliente longo) recebeu 1 conexão (1)
+  PASS  srv-3 (livre) recebeu os 6 curtos (6)
+  PASS  conexões ativas no fim (Ativas agora: 0)
+
+### C3: derruba o srv-2 com carga rodando (Round-Robin)
+  PASS  monitor detectou a queda do srv-2 (1)
+  PASS  lote 1: 4 clientes do srv-2 tiveram erro (4)
+  PASS  lote 2: nenhum erro (0)
+  PASS  srv-2 não recebeu conexão nova (4)
+  PASS  srv-1 recebeu 6 do lote 2 (6)
+  PASS  srv-3 recebeu 6 do lote 2 (6)
+  PASS  conexões ativas no fim (Ativas agora: 0)
+
+### C4: o srv-2 continua caído; reinicia ele na mesma porta
+  PASS  monitor detectou a recuperação do srv-2 (1)
+  PASS  srv-1 recebeu 4 conexões (4)
+  PASS  srv-2 recebeu 4 conexões (4)
+  PASS  srv-3 recebeu 4 conexões (4)
+  PASS  conexões ativas no fim (Ativas agora: 0)
+
+TUDO PASSOU
