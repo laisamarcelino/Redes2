@@ -5,7 +5,7 @@
 # C1 e C2 testam as políticas, C3 derruba o srv-2 e C4 reinicia o srv-2.
 
 cd "$(dirname "$0")/.."
-LB=${PORTA:-9000}                 # porta do LB; os servidores usam LB+1, LB+2 e LB+3
+LB=${PORTA:-8000}                 # porta do LB; os servidores usam LB+1, LB+2 e LB+3
 S1=$((LB + 1)); S2=$((LB + 2)); S3=$((LB + 3))
 SERVIDORES="127.0.0.1:$S1 127.0.0.1:$S2 127.0.0.1:$S3"
 ERROS=0

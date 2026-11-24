@@ -1,4 +1,3 @@
-
 Subindo os 3 servidores...
 
 ### C1: Round-Robin, 30 clientes -> 10 por servidor
